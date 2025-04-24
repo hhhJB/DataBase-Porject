@@ -7,6 +7,38 @@ from PyQt5.QtCore import Qt
 today = datetime.datetime.today()
 userID, userChar, db = "", "", sqlite3.connect('Database.db')
 specific_character = ['\\', '/', ':', '?', "\"", "\'", "<", ">", "|"]
+
+def display_query_results(self, results, cursor):
+    self.tableWidget.clear()
+    self.tableWidget.setColumnCount(0)
+    self.tableWidget.setRowCount(0)
+
+    if len(results) == 0:
+        self.label_Query_Result.setText(
+            "Form", "There is no data")
+    else:
+        self.label_Query_Result.setText(
+            "Query Result")
+
+        col_result = list(cursor.description)
+        row_count = len(results)
+        col_count = len(results[0]) if row_count > 0 else 0
+
+        self.tableWidget.setColumnCount(col_count)
+        self.tableWidget.setRowCount(row_count)
+
+        for col_idx, col_info in enumerate(col_result):
+            header_item = QtWidgets.QTableWidgetItem()
+            self.tableWidget.setHorizontalHeaderItem(col_idx, header_item)
+            header_item.setText(col_info[0])
+
+        results = [list(row) for row in results]
+        for row_idx in range(row_count):
+            for col_idx in range(col_count):
+                item = QtWidgets.QTableWidgetItem()
+                self.tableWidget.setItem(row_idx, col_idx, item)
+                item.setText(str(results[row_idx][col_idx]))
+
 def Initialize_Database():
     global db
     cursor = db.cursor()
@@ -406,10 +438,13 @@ class Student_Info_Query_Ui(QtWidgets.QWidget):
         Form = self
         Form.setObjectName("Form")
         Form.resize(700, 350)
+        Form.setWindowTitle("Student Info Query")
         self.Button_Back = QtWidgets.QPushButton(Form)
         self.Button_Back.setGeometry(PyQt5.QtCore.QRect(480, 110, 200, 30))
         self.Button_Back.setObjectName("pushButton_2")
+        self.Button_Back.setText( "Back")
         self.Button_Back.clicked.connect(lambda: self.back.emit())
+
         self.Button_Student_Info = QtWidgets.QPushButton(Form)
         self.Button_Student_Info.setGeometry(PyQt5.QtCore.QRect(480, 30, 200, 30))
         self.Button_Student_Info.setObjectName("pushButton_3")
@@ -462,6 +497,12 @@ class Student_Info_Query_Ui(QtWidgets.QWidget):
                     PyQt5.QtCore.QCoreApplication.translate("Form", "Student ID must be a 10 digit decimal number"))
                 return
             sql = f'SELECT * FROM Students WHERE StudentID=\'{Student_ID}\' ORDER BY StudentID'
+        elif len(Student_ID) == 0 and len(Student_Name) != 0:
+            if not Student_Name.isalpha():
+                self.label_Query_Result.setText(
+                    PyQt5.QtCore.QCoreApplication.translate("Form", "Student name must be English characters"))
+                return
+            sql = f'SELECT * FROM Students WHERE StudentName=\'{Student_Name}\' ORDER BY StudentID'
         elif len(Student_Name) != 0 and len(Student_ID) != 0:
             if not Student_ID.isdigit() or len(Student_ID) != 10:
                 self.label_Query_Result.setText(
@@ -472,50 +513,12 @@ class Student_Info_Query_Ui(QtWidgets.QWidget):
                     PyQt5.QtCore.QCoreApplication.translate("Form", "Student name must be English characters"))
                 return
             sql = f'SELECT * FROM Students WHERE StudentID=\'{Student_ID}\' AND StudentName=\'{Student_Name}\' ORDER BY StudentID'
-        elif len(Student_ID) == 0 and len(Student_Name) != 0:
-            if not Student_Name.isalpha():
-                self.label_Query_Result.setText(
-                    PyQt5.QtCore.QCoreApplication.translate("Form", "Student name must be English characters"))
-                return
-            sql = f'SELECT * FROM Students WHERE StudentName=\'{Student_Name}\' ORDER BY StudentID'
         elif len(Student_ID) == 0 and len(Student_Name) == 0:
             sql = f'SELECT * FROM Students ORDER BY StudentID'
         cursor.execute(sql)
         results = cursor.fetchall()
-        if len(results) > 0:
-            self.label_Query_Result.setText(
-                PyQt5.QtCore.QCoreApplication.translate("Form", "Query Result"))
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "Query Result"))
-            col_result = cursor.description
-            self.row = len(results)  # 取得记录个数，用于设置表格的行数
-            self.vol = len(results[0])  # 取得字段数，用于设置表格的列数
-            col_result = list(col_result)
-            a = 0
-            self.tableWidget.setColumnCount(self.vol)
-            self.tableWidget.setRowCount(self.row)
-            for i in col_result:
-                item = QtWidgets.QTableWidgetItem()
-                self.tableWidget.setHorizontalHeaderItem(a, item)
-                item = self.tableWidget.horizontalHeaderItem(a)
-                item.setText(i[0])
-                a = a + 1
-            results = list(results)
-            for i in range(len(results)):
-                results[i] = list(results[i])
-            for i in range(self.row):
-                for j in range(self.vol):
-                    item = QtWidgets.QTableWidgetItem()
-                    self.tableWidget.setItem(i, j, item)
-                    item = self.tableWidget.item(i, j)
-                    item.setText(str(results[i][j]))
-        else:
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "There is no data"))
+        display_query_results(self,results,cursor)
+
     def Chosen_Course_Info_Query(self):
         global db
         Student_ID = self.lineEdit_Student_ID.text()
@@ -551,42 +554,10 @@ class Student_Info_Query_Ui(QtWidgets.QWidget):
             sql = 'SELECT DISTINCT * FROM Courses WHERE CourseID IN (SELECT DISTINCT CourseID FROM CourseChoosing WHERE StudentID IN (SELECT DISTINCT StudentID FROM Students)) ORDER BY CourseID'
         cursor.execute(sql)
         results = cursor.fetchall()
-        if len(results) == 0:
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "There is no data"))
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-        else:
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "Query Result"))
-            col_result = cursor.description
-            self.row = len(results)  # 取得记录个数，用于设置表格的行数
-            self.vol = len(results[0])  # 取得字段数，用于设置表格的列数
-            col_result = list(col_result)
-            a = 0
-            self.tableWidget.setColumnCount(self.vol)
-            self.tableWidget.setRowCount(self.row)
-            for i in col_result:
-                item = QtWidgets.QTableWidgetItem()
-                self.tableWidget.setHorizontalHeaderItem(a, item)
-                item = self.tableWidget.horizontalHeaderItem(a)
-                item.setText(i[0])
-                a = a + 1
-            results = list(results)
-            for i in range(len(results)):
-                results[i] = list(results[i])
-            for i in range(self.row):
-                for j in range(self.vol):
-                    item = QtWidgets.QTableWidgetItem()
-                    self.tableWidget.setItem(i, j, item)
-                    item = self.tableWidget.item(i, j)
-                    item.setText(str(results[i][j]))
+        display_query_results(self, results, cursor)
+
     def retranslateUi(self, Form):
         _translate = PyQt5.QtCore.QCoreApplication.translate
-        Form.setWindowTitle(_translate("Form", "Student Info Query"))
-        self.Button_Back.setText(_translate("Form", "Back"))
         self.label_Student_ID.setText(_translate("Form", "Student ID"))
         self.label_Student_Name.setText(_translate("Form", "Student Name"))
         self.label_Query_Result.setText(_translate("Form", "Query Result"))
@@ -663,18 +634,17 @@ class Student_Score_Query_Ui(QtWidgets.QWidget):
         Student_ID = self.lineEdit_Student_ID.text()
         if Student_ID != '':
             if len(Student_ID) != 10 or not Student_ID.isdigit():
-                self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "Student ID must be a 10 digit decimal number"))
+                self.label_Query_Result.setText( "Student ID must be a 10 digit decimal number")
                 return
         Student_Name = self.lineEdit_Student_Name.text()
         for i in Student_Name:
             if i in specific_character:
-                self.label_Query_Result.setText(
-                    PyQt5.QtCore.QCoreApplication.translate("Form", "Student Name should not contain \\, /, :, ?, \", \', <, >, |"))
+                self.label_Query_Result.setText( "Student Name should not contain \\, /, :, ?, \", \', <, >, |")
                 return
         Course_ID = self.lineEdit_Course_ID.text()
         if Course_ID != '':
             if len(Course_ID) != 7 or not Course_ID.isdigit():
-                self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "Course ID must be a 7 digit decimal number"))
+                self.label_Query_Result.setText("Course ID must be a 7 digit decimal number")
                 return
         Course_Name = self.lineEdit_Course_Name.text()
         for i in Course_Name:
@@ -829,38 +799,8 @@ class Student_Score_Query_Ui(QtWidgets.QWidget):
             params.append(Course_Name)
         cursor.execute(sql, params)
         results = cursor.fetchall()
-        if len(results) == 0:
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "There is no data"))
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-        else:
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "Query Result"))
-            col_result = cursor.description
-            self.row = len(results)  # 取得记录个数，用于设置表格的行数
-            self.vol = len(results[0])  # 取得字段数，用于设置表格的列数
-            col_result = list(col_result)
-            a = 0
-            self.tableWidget.setColumnCount(self.vol)
-            self.tableWidget.setRowCount(self.row)
-            for i in col_result:
-                item = QtWidgets.QTableWidgetItem()
-                self.tableWidget.setHorizontalHeaderItem(a, item)
-                item = self.tableWidget.horizontalHeaderItem(a)
-                item.setText(i[0])
-                a = a + 1
-            results = list(results)
-            for i in range(len(results)):
-                results[i] = list(results[i])
-            for i in range(self.row):
-                for j in range(self.vol):
-                    item = QtWidgets.QTableWidgetItem()
-                    self.tableWidget.setItem(i, j, item)
-                    item = self.tableWidget.item(i, j)
-                    item.setText(str(results[i][j]))
+        display_query_results(self,results,cursor)
+
 class Course_Info_Query_Ui(QtWidgets.QWidget):
     back = PyQt5.QtCore.pyqtSignal()
     def __init__(self):
@@ -971,38 +911,8 @@ class Course_Info_Query_Ui(QtWidgets.QWidget):
             """
         cursor.execute(sql, params)
         results = cursor.fetchall()
-        if len(results) == 0:
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "There is no data"))
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-        else:
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "Query Result"))
-            col_result = cursor.description
-            self.row = len(results)  # 取得记录个数，用于设置表格的行数
-            self.vol = len(results[0])  # 取得字段数，用于设置表格的列数
-            col_result = list(col_result)
-            a = 0
-            self.tableWidget.setColumnCount(self.vol)
-            self.tableWidget.setRowCount(self.row)
-            for i in col_result:
-                item = QtWidgets.QTableWidgetItem()
-                self.tableWidget.setHorizontalHeaderItem(a, item)
-                item = self.tableWidget.horizontalHeaderItem(a)
-                item.setText(i[0])
-                a = a + 1
-            results = list(results)
-            for i in range(len(results)):
-                results[i] = list(results[i])
-            for i in range(self.row):
-                for j in range(self.vol):
-                    item = QtWidgets.QTableWidgetItem()
-                    self.tableWidget.setItem(i, j, item)
-                    item = self.tableWidget.item(i, j)
-                    item.setText(str(results[i][j]))
+        display_query_results(self,results,cursor)
+
     def Course_Choosing_Info_Query(self):
         global db
         cursor = db.cursor()
@@ -1059,38 +969,8 @@ class Course_Info_Query_Ui(QtWidgets.QWidget):
             """
         cursor.execute(sql, params)
         results = cursor.fetchall()
-        if len(results) == 0:
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "There is no data"))
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-        else:
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "Query Result"))
-            col_result = cursor.description
-            self.row = len(results)  # 取得记录个数，用于设置表格的行数
-            self.vol = len(results[0])  # 取得字段数，用于设置表格的列数
-            col_result = list(col_result)
-            a = 0
-            self.tableWidget.setColumnCount(self.vol)
-            self.tableWidget.setRowCount(self.row)
-            for i in col_result:
-                item = QtWidgets.QTableWidgetItem()
-                self.tableWidget.setHorizontalHeaderItem(a, item)
-                item = self.tableWidget.horizontalHeaderItem(a)
-                item.setText(i[0])
-                a = a + 1
-            results = list(results)
-            for i in range(len(results)):
-                results[i] = list(results[i])
-            for i in range(self.row):
-                for j in range(self.vol):
-                    item = QtWidgets.QTableWidgetItem()
-                    self.tableWidget.setItem(i, j, item)
-                    item = self.tableWidget.item(i, j)
-                    item.setText(str(results[i][j]))
+        display_query_results(self,results,cursor)
+
 class Teaching_Info_Query_Ui(QtWidgets.QWidget):
     back = PyQt5.QtCore.pyqtSignal()
     def __init__(self):
@@ -1167,40 +1047,8 @@ class Teaching_Info_Query_Ui(QtWidgets.QWidget):
             sql = f'SELECT * FROM Teachers ORDER BY TeacherID'
         cursor.execute(sql)
         results = cursor.fetchall()
-        if len(results) > 0:
-            self.label_Query_Result.setText(
-                PyQt5.QtCore.QCoreApplication.translate("Form", "Query Result"))
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "Query Result"))
-            col_result = cursor.description
-            self.row = len(results)  # 取得记录个数，用于设置表格的行数
-            self.vol = len(results[0])  # 取得字段数，用于设置表格的列数
-            col_result = list(col_result)
-            a = 0
-            self.tableWidget.setColumnCount(self.vol)
-            self.tableWidget.setRowCount(self.row)
-            for i in col_result:
-                item = QtWidgets.QTableWidgetItem()
-                self.tableWidget.setHorizontalHeaderItem(a, item)
-                item = self.tableWidget.horizontalHeaderItem(a)
-                item.setText(i[0])
-                a = a + 1
-            results = list(results)
-            for i in range(len(results)):
-                results[i] = list(results[i])
-            for i in range(self.row):
-                for j in range(self.vol):
-                    item = QtWidgets.QTableWidgetItem()
-                    self.tableWidget.setItem(i, j, item)
-                    item = self.tableWidget.item(i, j)
-                    item.setText(str(results[i][j]))
-        else:
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "There is no data"))
+        display_query_results(self,results,cursor)
+
     def Teaching_Info_Query(self):
         global db
         Teacher_ID = self.lineEdit_Teacher_ID.text()
@@ -1236,38 +1084,8 @@ class Teaching_Info_Query_Ui(QtWidgets.QWidget):
             sql = f"SELECT DISTINCT Teachers.TeacherName, Teachers.TeacherID, Courses.CourseName, Courses.CourseID, CourseChoosing.ChosenYear, Courses.Credit, Courses.Grade, Courses.CanceledYear FROM Teachers JOIN CourseChoosing ON Teachers.TeacherID=CourseChoosing.TeacherID JOIN Courses ON CourseChoosing.CourseID=Courses.CourseID WHERE Teachers.TeacherID=\'{Teacher_ID}\' AND Teachers.TeacherName=\'{Teacher_Name}\' ORDER BY Courses.CourseID, CourseChoosing.ChosenYear;"
         cursor.execute(sql)
         results = cursor.fetchall()
-        if len(results) == 0:
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "There is no data"))
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-        else:
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "Query Result"))
-            col_result = cursor.description
-            self.row = len(results)  # 取得记录个数，用于设置表格的行数
-            self.vol = len(results[0])  # 取得字段数，用于设置表格的列数
-            col_result = list(col_result)
-            a = 0
-            self.tableWidget.setColumnCount(self.vol)
-            self.tableWidget.setRowCount(self.row)
-            for i in col_result:
-                item = QtWidgets.QTableWidgetItem()
-                self.tableWidget.setHorizontalHeaderItem(a, item)
-                item = self.tableWidget.horizontalHeaderItem(a)
-                item.setText(i[0])
-                a = a + 1
-            results = list(results)
-            for i in range(len(results)):
-                results[i] = list(results[i])
-            for i in range(self.row):
-                for j in range(self.vol):
-                    item = QtWidgets.QTableWidgetItem()
-                    self.tableWidget.setItem(i, j, item)
-                    item = self.tableWidget.item(i, j)
-                    item.setText(str(results[i][j]))
+        display_query_results(self, results, cursor)
+
     def retranslateUi(self, Form):
         _translate = PyQt5.QtCore.QCoreApplication.translate
         Form.setWindowTitle(_translate("Form", "Teacher (Teaching) Info Query"))
@@ -1345,6 +1163,7 @@ class Average_Score_Info_Query_Ui(QtWidgets.QWidget):
         self.comboBox.setItemText(2, _translate("Form", "Course"))
         self.comboBox.setItemText(3, _translate("Form", "Class"))
         self.label_Query_Result.setText(_translate("Form", "Query Result"))
+
     def Query_Average_Score(self):
         global db
         Student_ID = self.lineEdit_Student_ID.text()
@@ -1627,38 +1446,8 @@ class Student_Info_Modify_Ui(QtWidgets.QWidget):
             sql = 'SELECT * FROM Students ORDER BY StudentID;'
         cursor.execute(sql)
         results = cursor.fetchall()
-        if len(results) > 0:
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "Query Result"))
-            col_result = cursor.description
-            self.row = len(results)  # 取得记录个数，用于设置表格的行数
-            self.vol = len(results[0])  # 取得字段数，用于设置表格的列数
-            col_result = list(col_result)
-            a = 0
-            self.tableWidget.setColumnCount(self.vol)
-            self.tableWidget.setRowCount(self.row)
-            for i in col_result:
-                item = QtWidgets.QTableWidgetItem()
-                self.tableWidget.setHorizontalHeaderItem(a, item)
-                item = self.tableWidget.horizontalHeaderItem(a)
-                item.setText(i[0])
-                a = a + 1
-            results = list(results)
-            for i in range(len(results)):
-                results[i] = list(results[i])
-            for i in range(self.row):
-                for j in range(self.vol):
-                    item = QtWidgets.QTableWidgetItem()
-                    self.tableWidget.setItem(i, j, item)
-                    item = self.tableWidget.item(i, j)
-                    item.setText(str(results[i][j]))
-        else:
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "There is no data"))
+        display_query_results(self, results, cursor)
+
     def Insert(self):
         global db
         cursor = db.cursor()
@@ -1924,38 +1713,8 @@ class Course_Info_Modify_Ui(QtWidgets.QWidget):
             sql = 'SELECT * FROM Courses ORDER BY CourseID;'
         cursor.execute(sql)
         results = cursor.fetchall()
-        if len(results) > 0:
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "Query Result"))
-            col_result = cursor.description
-            self.row = len(results)  # 取得记录个数，用于设置表格的行数
-            self.vol = len(results[0])  # 取得字段数，用于设置表格的列数
-            col_result = list(col_result)
-            a = 0
-            self.tableWidget.setColumnCount(self.vol)
-            self.tableWidget.setRowCount(self.row)
-            for i in col_result:
-                item = QtWidgets.QTableWidgetItem()
-                self.tableWidget.setHorizontalHeaderItem(a, item)
-                item = self.tableWidget.horizontalHeaderItem(a)
-                item.setText(i[0])
-                a = a + 1
-            results = list(results)
-            for i in range(len(results)):
-                results[i] = list(results[i])
-            for i in range(self.row):
-                for j in range(self.vol):
-                    item = QtWidgets.QTableWidgetItem()
-                    self.tableWidget.setItem(i, j, item)
-                    item = self.tableWidget.item(i, j)
-                    item.setText(str(results[i][j]))
-        else:
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "There is no data"))
+        display_query_results(self,results,cursor)
+
     def Insert(self):
         global db
         cursor = db.cursor()
@@ -2227,38 +1986,8 @@ class Course_Choosing_Info_Modify_Ui(QtWidgets.QWidget):
             sql = f'SELECT * FROM CourseChoosing WHERE StudentID=\'{Student_ID}\' AND CourseID=\'{Course_ID}\' ORDER BY StudentID, CourseID;'
         cursor.execute(sql)
         results = cursor.fetchall()
-        if len(results) > 0:
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "Query Result"))
-            col_result = cursor.description
-            self.row = len(results)  # 取得记录个数，用于设置表格的行数
-            self.vol = len(results[0])  # 取得字段数，用于设置表格的列数
-            col_result = list(col_result)
-            a = 0
-            self.tableWidget.setColumnCount(self.vol)
-            self.tableWidget.setRowCount(self.row)
-            for i in col_result:
-                item = QtWidgets.QTableWidgetItem()
-                self.tableWidget.setHorizontalHeaderItem(a, item)
-                item = self.tableWidget.horizontalHeaderItem(a)
-                item.setText(i[0])
-                a = a + 1
-            results = list(results)
-            for i in range(len(results)):
-                results[i] = list(results[i])
-            for i in range(self.row):
-                for j in range(self.vol):
-                    item = QtWidgets.QTableWidgetItem()
-                    self.tableWidget.setItem(i, j, item)
-                    item = self.tableWidget.item(i, j)
-                    item.setText(str(results[i][j]))
-        else:
-            self.tableWidget.clear()
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.setRowCount(0)
-            self.label_Query_Result.setText(PyQt5.QtCore.QCoreApplication.translate("Form", "There is no data"))
+        display_query_results(self,results,cursor)
+
     def Insert(self):
         global db
         cursor = db.cursor()
