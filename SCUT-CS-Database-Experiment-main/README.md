@@ -1,2 +1,2 @@
-# SCUT-CS-Database-Experiment
-华南理工大学计科全英班数据库实验，求求大家帮我star一下吧！这对我非常重要！
+本项目借鉴https://github.com/SwordRain2004/SCUT-CS-Database-Experiment
+对UI进一步改进以及代码逻辑优化
